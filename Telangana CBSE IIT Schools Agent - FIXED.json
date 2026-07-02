@@ -1,0 +1,721 @@
+{
+  "name": "Telangana CBSE IIT Schools Agent - FIXED",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3296,
+        400
+      ],
+      "id": "52eb152b-dd5e-47c3-8a71-d7f9cdb45d27",
+      "name": "Start Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { district: \"Karimnagar\" } },\n  { json: { district: \"Warangal\" } },\n  { json: { district: \"Nizamabad\" } },\n  { json: { district: \"Khammam\" } },\n  { json: { district: \"Nalgonda\" } },\n  { json: { district: \"Hyderabad\" } },\n  { json: { district: \"Rangareddy\" } },\n  { json: { district: \"Medak\" } },\n  { json: { district: \"Adilabad\" } },\n  { json: { district: \"Mahbubnagar\" } },\n  { json: { district: \"Sangareddy\" } },\n  { json: { district: \"Siddipet\" } },\n  { json: { district: \"Suryapet\" } },\n  { json: { district: \"Yadadri\" } }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3088,
+        400
+      ],
+      "id": "24670060-22a6-46ee-9b3b-27626942fa3d",
+      "name": "Telangana Districts"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2864,
+        400
+      ],
+      "id": "43441c4c-cc1e-46c9-ab98-0f8ab188848a",
+      "name": "Loop Districts"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a school data extraction assistant.\n\nFrom the search results below, extract all SCHOOLS only.\n\nReturn ONLY valid JSON array, no extra text, no markdown:\n\n[\n  {\n    \"school_name\": \"full school name here\",\n    \"district\": \"{{$json.district}}\",\n    \"website\": \"website url or empty string\",\n    \"offers_iit\": true,\n    \"offers_neet\": true\n  }\n]\n\nSTRICT RULES:\n- Only include actual schools\n- Do NOT include coaching centers\n- Do NOT include blogs or news\n- Do NOT include duplicates\n- If website unknown use empty string\n- Return empty array [] if nothing found\n- Return ONLY JSON, no explanation\n\nSearch Results:\n{{ JSON.stringify($json.results) }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2416,
+        400
+      ],
+      "id": "8f9f7e57-93eb-4344-b86e-84f6e2b06862",
+      "name": "AI Extract Schools"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -2416,
+        624
+      ],
+      "id": "b6307067-fef5-43d8-96b3-2979eec939e3",
+      "name": "Gemini Model 1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "EMGLJ43LtZ1zXkqm",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI output into proper JSON array\nconst rawOutput = $json.output || $json.text || \"\";\n\nlet schools = [];\n\ntry {\n  // Try to find JSON array in output\n  const jsonMatch = rawOutput.match(/\\[([\\s\\S]*?)\\]/);\n  if (jsonMatch) {\n    schools = JSON.parse(jsonMatch[0]);\n  } else {\n    schools = JSON.parse(rawOutput);\n  }\n} catch (e) {\n  console.log(\"Parse error:\", e.message);\n  schools = [];\n}\n\n// Return each school as separate item\nif (schools.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nreturn schools.map(school => ({\n  json: {\n    school_name: school.school_name || \"\",\n    district: school.district || \"\",\n    website: school.website || \"\",\n    offers_iit: school.offers_iit || false,\n    offers_neet: school.offers_neet || false\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2144,
+        320
+      ],
+      "id": "72155053-c659-4837-8fa9-2b464298cc73",
+      "name": "Parse Schools JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1984,
+        400
+      ],
+      "id": "b550cd0f-b043-4feb-bd6d-1d0d20d3fc5e",
+      "name": "Skip If No Schools"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1760,
+        304
+      ],
+      "id": "2252724d-836a-4b9f-8593-6ef3dfb8f36d",
+      "name": "Loop Each School"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TAVILY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"\\\"{{$json.school_name}}\\\" mobile app play.google.com OR apps.apple.com OR android app download\",\n  \"search_depth\": \"basic\",\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1536,
+        208
+      ],
+      "id": "32e8c33a-1fc0-4da0-b788-467422e1a6a7",
+      "name": "Check School Has App"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if any result is from play store or app store\nconst results = $json.results || [];\nconst schoolName = $('Loop Each School').first().json.school_name;\nconst district = $('Loop Each School').first().json.district;\nconst website = $('Loop Each School').first().json.website;\n\nlet hasApp = false;\n\nfor (const result of results) {\n  const url = (result.url || \"\").toLowerCase();\n  const title = (result.title || \"\").toLowerCase();\n  const content = (result.content || \"\").toLowerCase();\n  \n  if (\n    url.includes('play.google.com') ||\n    url.includes('apps.apple.com') ||\n    title.includes('app store') ||\n    title.includes('play store') ||\n    content.includes('download our app') ||\n    content.includes('mobile app')\n  ) {\n    hasApp = true;\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    school_name: schoolName,\n    district: district,\n    website: website,\n    has_app: hasApp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        208
+      ],
+      "id": "5a2c7543-4375-46a3-bd09-5076ddc0bb7a",
+      "name": "Check App Result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "app-check-id",
+              "leftValue": "={{ $json.has_app }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1104,
+        208
+      ],
+      "id": "9389e059-ce87-45a4-a251-5e764f9863b8",
+      "name": "Has App?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TAVILY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"\\\"{{$json.school_name}}\\\" {{$json.district}} Telangana official website contact email phone principal\",\n  \"search_depth\": \"advanced\",\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -880,
+        112
+      ],
+      "id": "1388caaf-d956-4793-a48f-77611999fdc9",
+      "name": "Get School Contact"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a contact information extraction assistant.\n\nExtract contact details for this school: {{$json.school_name}}\n\nReturn ONLY this exact JSON format, no markdown, no extra text:\n\n{\n  \"school_name\": \"{{$json.school_name}}\",\n  \"email\": \"extracted email or empty string\",\n  \"phone\": \"extracted phone number or empty string\",\n  \"website\": \"extracted website URL or empty string\",\n  \"location\": \"full address or city\",\n  \"district\": \"{{$json.district}}\",\n  \"has_app\": false\n}\n\nRULES:\n- Only real email addresses\n- NOT example@domain.com\n- If no email found use empty string\n- Return ONE JSON object only\n- No explanation, only JSON\n\nSearch Results:\n{{ JSON.stringify($json.results) }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -656,
+        112
+      ],
+      "id": "a344efd6-f9be-4da9-9fb0-367e3db7c86d",
+      "name": "AI Extract Contact"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        304
+      ],
+      "id": "de655e44-e4e3-48f1-913e-c8dc7db9f43b",
+      "name": "Gemini Model 2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "EMGLJ43LtZ1zXkqm",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse contact JSON from AI output\nconst rawOutput = $json.output || $json.text || \"\";\n\nlet contact = {};\n\ntry {\n  // Find JSON object in output\n  const jsonMatch = rawOutput.match(/\\{([\\s\\S]*?)\\}/);\n  if (jsonMatch) {\n    contact = JSON.parse(jsonMatch[0]);\n  } else {\n    contact = JSON.parse(rawOutput);\n  }\n} catch (e) {\n  console.log(\"Parse error:\", e.message);\n  contact = {\n    school_name: \"\",\n    email: \"\",\n    phone: \"\",\n    website: \"\",\n    location: \"\",\n    district: \"\",\n    has_app: false\n  };\n}\n\n// Only return if email exists\nif (!contact.email || contact.email === \"\") {\n  return [{ json: { skip_email: true, ...contact } }];\n}\n\nreturn [{ json: contact }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        112
+      ],
+      "id": "ddfb9489-3f25-452f-8627-26c33ddefba7",
+      "name": "Parse Contact JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "email-check",
+              "leftValue": "={{ $json.skip_email }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEqual"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        112
+      ],
+      "id": "1557c4c4-1e7f-4635-93ef-7fb1a0a162f1",
+      "name": "Has Email?"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "School Name": "={{ $json.school_name }}",
+            "District": "={{ $json.district }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "Website": "={{ $json.website }}",
+            "Location": "={{ $json.location }}",
+            "Has App": "={{ $json.has_app }}",
+            "Email Sent": "No",
+            "Date Added": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f2c1468b-7e76-4032-aa4b-a798dea7c213",
+      "name": "Save to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "llAtLxD2YnNS1SWx",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ 'Mobile App Development Proposal for ' + $json.school_name }}",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n\n<h2 style=\"color: #2c3e50;\">Dear Principal / Admin,</h2>\n\n<p>Greetings from <strong>[Your Company Name]</strong>!</p>\n\n<p>I came across <strong>{{ $json.school_name }}</strong> in <strong>{{ $json.district }}</strong> and was truly impressed by your commitment to excellence in education, especially your IIT/NEET coaching programs.</p>\n\n<p>I noticed that your school does not yet have a <strong>dedicated mobile app</strong>. In today's digital world, a mobile app can significantly enhance your school's reach and parent engagement.</p>\n\n<h3 style=\"color: #27ae60;\">📱 What I Can Build For You:</h3>\n<ul>\n  <li>✅ Student Portal (Results, Attendance, Timetable)</li>\n  <li>✅ Parent Communication App</li>\n  <li>✅ Online Fee Payment</li>\n  <li>✅ Push Notifications for Exams & Events</li>\n  <li>✅ IIT/NEET Study Materials & Videos</li>\n  <li>✅ Live Class Integration</li>\n  <li>✅ Admin Dashboard</li>\n</ul>\n\n<h3 style=\"color: #e74c3c;\">🎯 Why Choose Us:</h3>\n<ul>\n  <li>🏆 Built specifically for Telangana schools</li>\n  <li>💰 Affordable pricing plans</li>\n  <li>🔧 Free maintenance for 3 months</li>\n  <li>📱 Android + iOS both platforms</li>\n  <li>⚡ Ready in 30 days</li>\n</ul>\n\n<div style=\"background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n  <h3 style=\"margin: 0; color: #2c3e50;\">🎁 Special Offer</h3>\n  <p style=\"margin: 10px 0 0 0;\">FREE DEMO for your school - No commitment required!</p>\n</div>\n\n<p>Please reply to this email or call us to schedule a <strong>FREE demonstration</strong>.</p>\n\n<p style=\"margin-top: 30px;\">\n  <strong>Best Regards,</strong><br>\n  [Your Name]<br>\n  [Your Company]<br>\n  📞 [Your Phone Number]<br>\n  📧 [Your Email]<br>\n  🌐 [Your Website]\n</p>\n\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "fd18625d-e959-4916-9ce0-74ec3a7e7689",
+      "name": "Send Email to School",
+      "webhookId": "662bc9c0-acb1-4c2d-be7f-62e385624dc1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email Sent": "Yes",
+            "Sent Date": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "e7c2c6b6-9254-4e59-b4b1-53ef8c481ea8",
+      "name": "Update Email Sent Status",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "llAtLxD2YnNS1SWx",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wait 3 seconds between emails to avoid spam\nawait new Promise(resolve => setTimeout(resolve, 3000));\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "3a87203f-db1d-4269-84fb-5b0d6e6eafc3",
+      "name": "Wait 3 Seconds"
+    },
+    {
+      "parameters": {
+        "url": "https://maps.google.com/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "actionNetworkApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -2656,
+        400
+      ],
+      "id": "5e910008-1622-4016-9a3d-9b0d67470d89",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Workflow": {
+      "main": [
+        [
+          {
+            "node": "Telangana Districts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telangana Districts": {
+      "main": [
+        [
+          {
+            "node": "Loop Districts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Districts": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Extract Schools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model 1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Extract Schools",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Extract Schools": {
+      "main": [
+        [
+          {
+            "node": "Parse Schools JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Schools JSON": {
+      "main": [
+        [
+          {
+            "node": "Skip If No Schools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip If No Schools": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Loop Each School",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Each School": {
+      "main": [
+        [
+          {
+            "node": "Check School Has App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check School Has App": {
+      "main": [
+        [
+          {
+            "node": "Check App Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check App Result": {
+      "main": [
+        [
+          {
+            "node": "Has App?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has App?": {
+      "main": [
+        [
+          {
+            "node": "Get School Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Each School",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get School Contact": {
+      "main": [
+        [
+          {
+            "node": "AI Extract Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model 2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Extract Contact",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Extract Contact": {
+      "main": [
+        [
+          {
+            "node": "Parse Contact JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Contact JSON": {
+      "main": [
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email?": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Each School",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Email to School",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to School": {
+      "main": [
+        [
+          {
+            "node": "Update Email Sent Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Email Sent Status": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Loop Each School",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "AI Extract Schools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "90288cce-549f-4432-bcad-52d724aa64b6",
+  "meta": {
+    "instanceId": "a3fb2ffafc917cc0914831c2c6f10c3f9a7d1f61b51bc573551cd0e7b70c90eb"
+  },
+  "id": "YaYnDvor6EyXExqQ",
+  "tags": []
+}
